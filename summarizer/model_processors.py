@@ -26,7 +26,8 @@ class ModelProcessor(object):
         reduce_option: str = 'mean',
         sentence_handler: SentenceHandler = SentenceHandler(),
         random_state: int = 12345,
-        hidden_concat: bool = False
+        hidden_concat: bool = False,
+        return_list: bool = False,
     ):
         """
         This is the parent Bert Summarizer model. New methods should implement this class
@@ -49,6 +50,7 @@ class ModelProcessor(object):
         self.sentence_handler = sentence_handler
         self.random_state = random_state
         self.hidden_concat = hidden_concat
+        self.return_list = return_list
 
     def cluster_runner(
         self,
@@ -193,7 +195,10 @@ class ModelProcessor(object):
         if sentences:
             sentences = self.__run_clusters(sentences, ratio, algorithm, use_first, num_sentences)
 
-        return ' '.join(sentences)
+        if self.return_list:
+            return sentences
+        else:
+            return ' '.join(sentences)
 
     def __call__(
         self,
@@ -204,7 +209,7 @@ class ModelProcessor(object):
         use_first: bool = True,
         algorithm: str = 'kmeans',
         num_sentences: int = None
-    ) -> str:
+    ) -> Union[List[str], str]:
         """
         (utility that wraps around the run function)
 
@@ -236,7 +241,8 @@ class Summarizer(ModelProcessor):
         reduce_option: str = 'mean',
         sentence_handler: SentenceHandler = SentenceHandler(),
         random_state: int = 12345,
-        hidden_concat: bool = False
+        hidden_concat: bool = False,
+        return_list: bool = False
     ):
         """
         This is the main Bert Summarizer class.
@@ -253,7 +259,8 @@ class Summarizer(ModelProcessor):
         """
 
         super(Summarizer, self).__init__(
-            model, custom_model, custom_tokenizer, hidden, reduce_option, sentence_handler, random_state, hidden_concat
+            model, custom_model, custom_tokenizer, hidden, reduce_option, sentence_handler, random_state, hidden_concat,
+            return_list
         )
 
 

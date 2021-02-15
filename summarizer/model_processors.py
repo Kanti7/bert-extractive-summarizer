@@ -28,6 +28,7 @@ class ModelProcessor(object):
         random_state: int = 12345,
         hidden_concat: bool = False,
         return_list: bool = False,
+        return_index: bool = False
     ):
         """
         This is the parent Bert Summarizer model. New methods should implement this class
@@ -51,6 +52,7 @@ class ModelProcessor(object):
         self.random_state = random_state
         self.hidden_concat = hidden_concat
         self.return_list = return_list
+        self.return_index = return_index
 
     def cluster_runner(
         self,
@@ -59,7 +61,7 @@ class ModelProcessor(object):
         algorithm: str = 'kmeans',
         use_first: bool = True,
         num_sentences: int = None
-    ) -> Tuple[List[str], np.ndarray]:
+    ) -> Tuple[List[str], np.ndarray, List[int]]:
         """
         Runs the cluster algorithm based on the hidden state. Returns both the embeddings and sentences.
 
@@ -68,7 +70,7 @@ class ModelProcessor(object):
         :param algorithm: Type of algorithm to use for clustering.
         :param use_first: Whether to use first sentence (helpful for news stories, etc).
         :param num_sentences: Number of sentences to use for summarization.
-        :return: A tuple of summarized sentences and embeddings
+        :return: A tuple of summarized sentences, embeddings and sentence indices
         """
 
         if num_sentences is not None:
@@ -88,7 +90,7 @@ class ModelProcessor(object):
         sentences = [content[j] for j in hidden_args]
         embeddings = np.asarray([hidden[j] for j in hidden_args])
 
-        return sentences, embeddings
+        return sentences, embeddings, hidden_args
 
     def __run_clusters(
         self,
@@ -97,7 +99,7 @@ class ModelProcessor(object):
         algorithm: str = 'kmeans',
         use_first: bool = True,
         num_sentences: int = None
-    ) -> List[str]:
+    ) -> Tuple[List[str], List[int]]:
         """
         Runs clusters and returns sentences.
 
@@ -109,8 +111,8 @@ class ModelProcessor(object):
         :return: summarized sentences
         """
 
-        sentences, _ = self.cluster_runner(content, ratio, algorithm, use_first, num_sentences)
-        return sentences
+        sentences, _, indices = self.cluster_runner(content, ratio, algorithm, use_first, num_sentences)
+        return sentences, indices
 
     def __retrieve_summarized_embeddings(
             self, content: List[str], ratio: float=0.2, algorithm: str='kmeans', use_first: bool = True, num_sentences: int = None
@@ -125,7 +127,7 @@ class ModelProcessor(object):
         :return: Summarized embeddings
         """
 
-        _, embeddings = self.cluster_runner(content, ratio, algorithm, use_first, num_sentences)
+        _, embeddings, _ = self.cluster_runner(content, ratio, algorithm, use_first, num_sentences)
         return embeddings
 
     def run_embeddings(
@@ -176,7 +178,10 @@ class ModelProcessor(object):
         use_first: bool = True,
         algorithm: str = 'kmeans',
         num_sentences: int = None
-    ) -> str:
+    ) -> Union[Tuple[List[str], List[int]],
+               List[str],
+               Tuple[str, List[int]],
+               str]:
         """
         Preprocesses the sentences, runs the clusters to find the centroids, then combines the sentences.
 
@@ -193,12 +198,18 @@ class ModelProcessor(object):
         sentences = self.sentence_handler(body, min_length, max_length)
 
         if sentences:
-            sentences = self.__run_clusters(sentences, ratio, algorithm, use_first, num_sentences)
+            sentences, indices = self.__run_clusters(sentences, ratio, algorithm, use_first, num_sentences)
 
-        if self.return_list:
+        if self.return_list and self.return_index:
+            return sentences, indices
+        elif self.return_list and not self.return_index:
             return sentences
-        else:
+        elif not self.return_list and self.return_index:
+            return ' '.join(sentences), indices
+        elif not self.return_list and not self.return_index:
             return ' '.join(sentences)
+        else:
+            raise Exception("ERROR: run")
 
     def __call__(
         self,
@@ -242,7 +253,8 @@ class Summarizer(ModelProcessor):
         sentence_handler: SentenceHandler = SentenceHandler(),
         random_state: int = 12345,
         hidden_concat: bool = False,
-        return_list: bool = False
+        return_list: bool = False,
+        return_index: bool = False
     ):
         """
         This is the main Bert Summarizer class.
@@ -260,7 +272,8 @@ class Summarizer(ModelProcessor):
 
         super(Summarizer, self).__init__(
             model, custom_model, custom_tokenizer, hidden, reduce_option, sentence_handler, random_state, hidden_concat,
-            return_list
+            return_list,
+            return_index
         )
 
 
